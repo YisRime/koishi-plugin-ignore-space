@@ -71,22 +71,28 @@ function execCommand(session: any, cmd: string, message: string) {
  * @param config 插件配置
  */
 export function apply(ctx: Context, config: Config) {
-  const prefixes = ctx.root.config.prefix
-  const prefix = prefixes ? prefixes[0] : ''
+  const prefixes = ctx.root.config.prefix || []
+  const rawNick = ctx.root.config.nickname
+  const nicknames = Array.isArray(rawNick) ? rawNick : rawNick ? [rawNick] : []
+
+  // 新增辅助函数：转义正则表达式特殊字符
+  function escapeRegExp(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  // 合并前缀和昵称，昵称后可跟逗号或冒号
+  const markers = [
+    ...prefixes.map(escapeRegExp),
+    ...nicknames.map(n => escapeRegExp(n) + '[,:]?')
+  ]
+  // 构造统一的正则，匹配开头任一标记及其后空格
+  const markerPattern = markers.length ? new RegExp(`^(?:${markers.join('|')})\\s*`) : null
 
   ctx.middleware(async (session, next) => {
     let message = cleanMessage(session.content, config.ignoreat)
 
-    if (prefix && message.startsWith(prefix)) {
-      message = message.slice(prefix.length).trim()
-    }
-
-    const rawNick = ctx.root.config.nickname
-    const nicknames = Array.isArray(rawNick) ? rawNick : rawNick ? [rawNick] : []
-    if (nicknames.length) {
-      const escaped = nicknames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-      const pattern = new RegExp(`^(${escaped.join('|')})[,:]?\\s*`, 'i')
-      message = message.replace(pattern, '')
+    if (markerPattern) {
+      message = message.replace(markerPattern, '')
     }
 
     if (message.includes('<')) {
