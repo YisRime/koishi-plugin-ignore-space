@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-ignore-space",
   "description": "忽略指令和参数之间的空格，支持黑白名单",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
