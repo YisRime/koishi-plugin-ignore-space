@@ -91,6 +91,12 @@ export function apply(ctx: Context, config: Config) {
   ctx.middleware(async (session, next) => {
     let message = cleanMessage(session.content, config.ignoreat)
 
+    // 检查是否有前缀或昵称匹配
+    const hasMarker = !markerPattern || markerPattern.test(message)
+    if (!hasMarker) {
+      return next()
+    }
+
     if (markerPattern) {
       message = message.replace(markerPattern, '')
     }
