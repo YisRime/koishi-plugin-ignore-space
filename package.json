@@ -1,0 +1,22 @@
+{
+  "name": "koishi-plugin-ignore-space",
+  "description": "忽略指令和参数之间的空格，支持黑白名单",
+  "version": "0.0.1",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "dist"
+  ],
+  "license": "MIT",
+  "scripts": {},
+  "keywords": [
+    "chatbot",
+    "koishi",
+    "plugin"
+  ],
+  "devDependencies": {},
+  "peerDependencies": {
+    "koishi": "^4.18.3"
+  }
+}
