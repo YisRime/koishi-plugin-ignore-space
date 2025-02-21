@@ -7,12 +7,14 @@ export const name = 'ignore-space'
 
 /**
  * 插件配置接口
- * @property ignoreat 是否忽略消息起始处的@和引用
+ * @property ignoreAt 是否忽略消息起始处的@标记
+ * @property ignoreQuote 是否忽略消息起始处的引用
  * @property whitelist 需要忽略空格的命令列表
  * @property blacklist 不进行处理的完整命令参数列表
  */
 export interface Config {
-  ignoreat: boolean
+  ignoreAt: boolean
+  ignoreQuote: boolean
   whitelist: string[]
   blacklist: string[]
 }
@@ -21,8 +23,11 @@ export interface Config {
  * 插件配置 Schema
  */
 export const Config: Schema<Config> = Schema.object({
-  ignoreat: Schema.boolean()
-    .description('是否忽略消息开头的标记（如 @ 或引用）')
+  ignoreAt: Schema.boolean()
+    .description('是否忽略消息开头的@标记')
+    .default(true),
+  ignoreQuote: Schema.boolean()
+    .description('是否忽略消息开头的引用')
     .default(true),
   whitelist: Schema.array(String)
     .description('进行忽略处理的命令列表')
@@ -33,23 +38,34 @@ export const Config: Schema<Config> = Schema.object({
 })
 
 /**
- * 移除字符串起始处形如 <...> 的标签
+ * 移除字符串起始处的@标记
  * @param input 输入字符串
  * @returns 处理后的字符串
  */
 function removeLeadingAt(input: string): string {
-  return input.replace(/^<[^>]+>\s*/g, '')
+  return input.replace(/^<at[^>]+>\s*/g, '')
 }
 
 /**
- * 清理消息：去除两端空白，并根据配置移除起始 <...> 标签
+ * 移除字符串起始处的引用标记
+ * @param input 输入字符串
+ * @returns 处理后的字符串
+ */
+function removeLeadingQuote(input: string): string {
+  return input.replace(/^<quote[^>]+>\s*/g, '')
+}
+
+/**
+ * 清理消息：去除两端空白，并根据配置移除起始标记
  * @param msg 原始消息
- * @param ignoreAt 是否忽略起始的 <...> 标签
+ * @param ignoreAt 是否忽略起始的@标记
+ * @param ignoreQuote 是否忽略起始的引用标记
  * @returns 清理后的消息
  */
-function cleanMessage(msg: string, ignoreAt: boolean): string {
+function cleanMessage(msg: string, ignoreAt: boolean, ignoreQuote: boolean): string {
   let m = msg.trim()
   if (ignoreAt) m = removeLeadingAt(m)
+  if (ignoreQuote) m = removeLeadingQuote(m)
   return m
 }
 
@@ -89,7 +105,7 @@ export function apply(ctx: Context, config: Config) {
   const markerPattern = markers.length ? new RegExp(`^(?:${markers.join('|')})\\s*`) : null
 
   ctx.middleware(async (session, next) => {
-    let message = cleanMessage(session.content, config.ignoreat)
+    let message = cleanMessage(session.content, config.ignoreAt, config.ignoreQuote)
 
     // 检查是否有前缀或昵称匹配
     const hasMarker = !markerPattern || markerPattern.test(message)
