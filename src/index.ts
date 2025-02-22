@@ -74,8 +74,18 @@ function cleanMessage(msg: string, ignoreAt: boolean): string {
  * @example
  */
 function execCommand(session: any, cmd: string, args: string, config: Config) {
-  const quoteContent = config.ignoreQuote && session.quote?.content ? ` ${session.quote.content}` : ''
-  return session.execute(`${cmd}${args ? ' ' + args : ''}${quoteContent}`)
+  let finalCommand = `${cmd}${args ? ' ' + args : ''}`
+
+  // 如果配置允许处理引用且存在引用内容
+  if (config.ignoreQuote && session.quote?.content) {
+    // 清理引用内容中的空白字符
+    const quoteContent = session.quote.content.trim()
+    if (quoteContent) {
+      finalCommand += ` ${quoteContent}`
+    }
+  }
+
+  return session.execute(finalCommand)
 }
 
 /**
