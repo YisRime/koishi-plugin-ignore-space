@@ -11,6 +11,8 @@ export const name = 'ignore-space'
  * @property ignoreQuote 是否忽略消息起始处的引用
  * @property whitelist 需要忽略空格的命令列表
  * @property blacklist 不进行处理的完整命令参数列表
+ * @interface Config
+ * @example
  */
 export interface Config {
   ignoreAt: boolean
@@ -39,102 +41,99 @@ export const Config: Schema<Config> = Schema.object({
 
 /**
  * 移除字符串起始处的@标记
- * @param input 输入字符串
- * @returns 处理后的字符串
+ * @param {string} input - 需要处理的输入字符串
+ * @returns {string} 移除了起始@标记的字符串
+ * @example
  */
 function removeLeadingAt(input: string): string {
-  return input.replace(/^<at[^>]+>\s*/g, '')
+  return input.replace(/^<at[^>]+>\s*/g, '') // 去除形如 <at...> 的标记
 }
 
-/**
- * 移除字符串起始处的引用标记
- * @param input 输入字符串
- * @returns 处理后的字符串
- */
-function removeLeadingQuote(input: string): string {
-  return input.replace(/^<quote[^>]+>\s*/g, '')
-}
+// 删除 removeLeadingQuote 函数
 
 /**
- * 清理消息：去除两端空白，并根据配置移除起始标记
- * @param msg 原始消息
- * @param ignoreAt 是否忽略起始的@标记
- * @param ignoreQuote 是否忽略起始的引用标记
- * @returns 清理后的消息
+ * 清理消息内容
+ * @param {string} msg - 原始消息内容
+ * @param {boolean} ignoreAt - 是否移除开头的@标记
+ * @returns {string} 清理后的消息内容
+ * @example
  */
-function cleanMessage(msg: string, ignoreAt: boolean, ignoreQuote: boolean): string {
+function cleanMessage(msg: string, ignoreAt: boolean): string {
   let m = msg.trim()
   if (ignoreAt) m = removeLeadingAt(m)
-  if (ignoreQuote) m = removeLeadingQuote(m)
   return m
 }
 
 /**
- * 执行命令：根据命令截取参数并触发执行
- * @param session 当前会话或上下文
- * @param cmd 命令名称
- * @param message 完整消息
- * @returns 执行结果
+ * 执行命令并添加引用内容
+ * @param {any} session - Koishi 会话对象
+ * @param {string} cmd - 要执行的命令
+ * @param {string} args - 命令参数
+ * @param {Config} config - 插件配置
+ * @returns {Promise<any>} 命令执行结果
+ * @example
  */
-function execCommand(session: any, cmd: string, message: string) {
-  const args = message.slice(cmd.length).trim()
-  return session.execute(`${cmd} ${args}`.trim())
+function execCommand(session: any, cmd: string, args: string, config: Config) {
+  const quoteContent = config.ignoreQuote && session.quote?.content ? ` ${session.quote.content}` : ''
+  return session.execute(`${cmd}${args ? ' ' + args : ''}${quoteContent}`)
 }
 
 /**
- * 应用插件逻辑，拦截消息并根据配置处理命令
- * @param ctx koishi 上下文
- * @param config 插件配置
+ * 插件主函数
+ * @param {Context} ctx - Koishi 上下文对象
+ * @param {Config} config - 插件配置
+ * @example
  */
 export function apply(ctx: Context, config: Config) {
-  const prefixes = ctx.root.config.prefix || []
-  const rawNick = ctx.root.config.nickname
-  const nicknames = Array.isArray(rawNick) ? rawNick : rawNick ? [rawNick] : []
+  // 1. 首先获取配置中的前缀和昵称
+  const prefixes = ctx.root.config.prefix || []  // 获取命令前缀，如 ['!', '.']
+  const rawNick = ctx.root.config.nickname      // 获取机器人昵称
+  const nicknames = Array.isArray(rawNick) ? rawNick : rawNick ? [rawNick] : []  // 处理昵称为数组形式
 
-  // 新增辅助函数：转义正则表达式特殊字符
+  // 2. 定义转义函数，确保特殊字符被正确处理
   function escapeRegExp(s: string): string {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
 
-  // 合并前缀和昵称，昵称后可跟逗号或冒号
+  // 3. 构造标记数组，包含：
+  // - 转义后的前缀
+  // - 转义后的昵称（昵称后可以跟逗号或冒号）
   const markers = [
     ...prefixes.map(escapeRegExp),
     ...nicknames.map(n => escapeRegExp(n) + '[,:]?')
   ]
-  // 构造统一的正则，匹配开头任一标记及其后空格
+
+  // 4. 最终构造正则表达式
   const markerPattern = markers.length ? new RegExp(`^(?:${markers.join('|')})\\s*`) : null
 
   ctx.middleware(async (session, next) => {
-    let message = cleanMessage(session.content, config.ignoreAt, config.ignoreQuote)
+    // 清理消息内容
+    let message = cleanMessage(session.content, config.ignoreAt)
 
     // 检查是否有前缀或昵称匹配
-    const hasMarker = !markerPattern || markerPattern.test(message)
-    if (!hasMarker) {
-      return next()
-    }
+    if (!(!markerPattern || markerPattern.test(message))) return next()
 
     if (markerPattern) {
       message = message.replace(markerPattern, '')
     }
 
+    // 提取命令和参数
+    let cmd: string, args: string
     if (message.includes('<')) {
       const atTags = message.match(/<.*?>/g) || []
-      const command = message.split('<')[0].trim()
-      return await session.execute(`${command} ${atTags.join(' ')}`)
+      cmd = message.split('<')[0].trim()
+      args = atTags.join(' ')
+    } else {
+      // 优先检查黑名单
+      const targetCmd = config.blacklist.find(cmd => message.startsWith(cmd))
+        || config.whitelist.find(cmd => message.startsWith(cmd))
+
+      if (!targetCmd) return next()
+
+      cmd = targetCmd
+      args = message.slice(targetCmd.length).trim()
     }
 
-    // 优先处理黑名单命令
-    const blCmd = config.blacklist.find(cmd => message.startsWith(cmd))
-    if (blCmd) {
-      return await execCommand(session, blCmd, message)
-    }
-
-    // 再处理白名单命令
-    const wlCmd = config.whitelist.find(cmd => message.startsWith(cmd))
-    if (wlCmd) {
-      return await execCommand(session, wlCmd, message)
-    }
-
-    return next()
+    return execCommand(session, cmd, args, config)
   })
 }
