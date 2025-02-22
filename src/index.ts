@@ -1,149 +1,98 @@
+/**
+ * @module ignore-space
+ * @description 一个用于处理消息空格的 Koishi 插件
+ */
+
 import { Context, Schema } from 'koishi'
 
-/**
- * 插件名称
- */
 export const name = 'ignore-space'
 
 /**
- * 插件配置接口
- * @property ignoreAt 是否忽略消息起始处的@标记
- * @property ignoreQuote 是否忽略消息起始处的引用
- * @property whitelist 需要忽略空格的命令列表
- * @property blacklist 不进行处理的完整命令参数列表
  * @interface Config
- * @example
+ * @description 插件配置项接口
  */
 export interface Config {
+  /** 是否忽略消息开头@前缀 */
   ignoreAt: boolean
+  /** 是否忽略引用内容 */
   ignoreQuote: boolean
+  /** 进行忽略处理的命令列表 */
   whitelist: string[]
+  /** 无需处理的完整命令参数列表 */
   blacklist: string[]
 }
 
-/**
- * 插件配置 Schema
- */
 export const Config: Schema<Config> = Schema.object({
-  ignoreAt: Schema.boolean()
-    .description('是否忽略消息开头的@标记')
-    .default(true),
-  ignoreQuote: Schema.boolean()
-    .description('是否忽略消息开头的引用')
-    .default(true),
-  whitelist: Schema.array(String)
-    .description('进行忽略处理的命令列表')
-    .default(['help']),
-  blacklist: Schema.array(String)
-    .description('无需处理的完整命令参数列表')
-    .default(['help-H'])
+  ignoreAt: Schema.boolean().description('忽略消息开头@前缀').default(true),
+  ignoreQuote: Schema.boolean().description('忽略引用内容').default(true),
+  whitelist: Schema.array(String).description('进行忽略处理的命令列表').default(['help']),
+  blacklist: Schema.array(String).description('无需处理的完整命令参数列表').default(['help-H'])
 })
 
 /**
- * 移除字符串起始处的@标记
- * @param {string} input - 需要处理的输入字符串
- * @returns {string} 移除了起始@标记的字符串
- * @example
- */
-function removeLeadingAt(input: string): string {
-  return input.replace(/^<at[^>]+>\s*/g, '') // 去除形如 <at...> 的标记
-}
-
-// 删除 removeLeadingQuote 函数
-
-/**
- * 清理消息内容
- * @param {string} msg - 原始消息内容
- * @param {boolean} ignoreAt - 是否移除开头的@标记
- * @returns {string} 清理后的消息内容
- * @example
- */
-function cleanMessage(msg: string, ignoreAt: boolean): string {
-  let m = msg.trim()
-  if (ignoreAt) m = removeLeadingAt(m)
-  return m
-}
-
-/**
- * 执行命令并添加引用内容
- * @param {any} session - Koishi 会话对象
- * @param {string} cmd - 要执行的命令
- * @param {string} args - 命令参数
- * @param {Config} config - 插件配置
- * @returns {Promise<any>} 命令执行结果
- * @example
- */
-function execCommand(session: any, cmd: string, args: string, config: Config) {
-  let finalCommand = `${cmd}${args ? ' ' + args : ''}`
-
-  // 如果配置允许处理引用且存在引用内容
-  if (config.ignoreQuote && session.quote?.content) {
-    // 清理引用内容中的空白字符
-    const quoteContent = session.quote.content.trim()
-    if (quoteContent) {
-      finalCommand += ` ${quoteContent}`
-    }
-  }
-
-  return session.execute(finalCommand)
-}
-
-/**
- * 插件主函数
- * @param {Context} ctx - Koishi 上下文对象
- * @param {Config} config - 插件配置
- * @example
+ * @function apply
+ * @description 插件主函数，处理消息中的空格并重新执行命令
+ * @param ctx - Koishi 上下文
+ * @param config - 插件配置
  */
 export function apply(ctx: Context, config: Config) {
-  // 1. 首先获取配置中的前缀和昵称
-  const prefixes = ctx.root.config.prefix || []  // 获取命令前缀，如 ['!', '.']
-  const rawNick = ctx.root.config.nickname      // 获取机器人昵称
-  const nicknames = Array.isArray(rawNick) ? rawNick : rawNick ? [rawNick] : []  // 处理昵称为数组形式
+  const prefixes = ctx.root.config.prefix || []
+  const nicknames = Array.isArray(ctx.root.config.nickname)
+    ? ctx.root.config.nickname
+    : ctx.root.config.nickname ? [ctx.root.config.nickname] : []
 
-  // 2. 定义转义函数，确保特殊字符被正确处理
-  function escapeRegExp(s: string): string {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  }
+  /**
+   * @private
+   * @description 匹配命令前缀的正则表达式
+   */
+  const markerPattern = [...prefixes, ...nicknames].length
+    ? new RegExp(`^(?:${[...prefixes, ...nicknames.map(n => n + '[,:]?')]
+        .map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('|')})\\s*`)
+    : null
 
-  // 3. 构造标记数组，包含：
-  // - 转义后的前缀
-  // - 转义后的昵称（昵称后可以跟逗号或冒号）
-  const markers = [
-    ...prefixes.map(escapeRegExp),
-    ...nicknames.map(n => escapeRegExp(n) + '[,:]?')
-  ]
-
-  // 4. 最终构造正则表达式
-  const markerPattern = markers.length ? new RegExp(`^(?:${markers.join('|')})\\s*`) : null
-
+  /**
+   * 处理消息空格的中间件
+   * @param session - 会话上下文
+   * @param next - 下一个中间件
+   * @returns Promise 执行结果
+   */
   ctx.middleware(async (session, next) => {
-    // 清理消息内容
-    let message = cleanMessage(session.content, config.ignoreAt)
-
-    // 检查是否有前缀或昵称匹配
-    if (!(!markerPattern || markerPattern.test(message))) return next()
-
-    if (markerPattern) {
-      message = message.replace(markerPattern, '')
+    // 获取并清理消息内容
+    let message = session.content.trim()
+    if (config.ignoreAt) {
+      // 移除开头的 at 标记
+      message = message.replace(/^<at[^>]+>\s*/g, '')
     }
 
-    // 提取命令和参数
+    // 检查是否包含命令前缀，如果没有则跳过处理
+    if (!(!markerPattern || markerPattern.test(message))) return next()
+    // 移除命令前缀
+    if (markerPattern) message = message.replace(markerPattern, '')
+
     let cmd: string, args: string
     if (message.includes('<')) {
+      // 处理包含 at 标签的情况
       const atTags = message.match(/<.*?>/g) || []
       cmd = message.split('<')[0].trim()
       args = atTags.join(' ')
     } else {
-      // 优先检查黑名单
+      // 检查是否匹配黑名单或白名单中的命令
       const targetCmd = config.blacklist.find(cmd => message.startsWith(cmd))
         || config.whitelist.find(cmd => message.startsWith(cmd))
-
       if (!targetCmd) return next()
 
+      // 提取命令和参数
       cmd = targetCmd
       args = message.slice(targetCmd.length).trim()
     }
 
-    return execCommand(session, cmd, args, config)
+    // 构造最终执行的命令
+    const finalCommand = `${cmd}${args ? ' ' + args : ''}${
+      !config.ignoreQuote && session.quote?.content ? ' ' + session.quote.content : ''
+    }`
+
+    // 重新执行处理后的命令
+    return session.execute(finalCommand)
   })
 }
