@@ -4,35 +4,46 @@
 
 忽略指令和参数之间的空格，支持黑白名单
 
-## 安装
+## 功能特点
 
-使用 npm 或 yarn 安装:
+- 自动清理命令和参数之间的空格
+- 可选择是否忽略消息开头的 @ 标记
+- 可选择是否忽略引用内容
+- 支持命令白名单和黑名单配置
+- 智能识别命令前缀
 
-```bash
-npm install koishi-plugin-ignore-space
-# or
-yarn add koishi-plugin-ignore-space
-```
+## 配置项
 
-## 配置
-
-在 Koishi 配置文件中添加如下插件配置示例:
-
-```javascript
-export default {
-  plugins: {
-    'ignore-space': {
-      // ignoreat: 是否忽略消息开头的标记（如 @ 或引用），默认为 true
-      ignoreat: true,
-      // whitelist: 需要进行空格忽略处理的命令列表，默认为 ['help']
-      whitelist: ['help'],
-      // blacklist: 完整命令参数列表，不进行处理，默认为 ['help-H']
-      blacklist: ['help-H']
-    }
-  }
+```typescript
+export interface Config {
+  // 是否忽略消息开头@前缀，默认为 true
+  ignoreAt: boolean
+  // 是否忽略引用内容，默认为 true
+  ignoreQuote: boolean
+  // 进行忽略处理的命令列表，默认为 ['help']
+  whitelist: string[]
+  // 无需处理的完整命令参数列表，默认为 ['help-H']
+  blacklist: string[]
 }
 ```
 
-## 使用
+## 工作原理
 
-插件会自动清理消息中的空格及起始标记，具体行为根据配置项决定，详情参阅源码及相关文档。
+1. 插件会自动识别并处理消息中的以下内容：
+   - 命令前缀（包括自定义前缀和昵称）
+   - @ 标记（可配置是否忽略）
+   - 引用内容（可配置是否忽略）
+   - 命令和参数之间的空格
+
+2. 处理流程：
+   - 清理消息前后的空格
+   - 根据配置移除 @ 标记
+   - 识别并处理命令前缀
+   - 检查命令是否在黑白名单中
+   - 重新组装并执行处理后的命令
+
+## 注意事项
+
+- 只有在白名单中的命令或匹配黑名单的完整命令才会进行处理
+- 支持带有 at 标签的复杂命令格式
+- 插件会保持引用内容的完整性（除非配置 ignoreQuote 为 false）

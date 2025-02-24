@@ -1,19 +1,29 @@
 {
   "name": "koishi-plugin-ignore-space",
   "description": "忽略指令和参数之间的空格，支持黑白名单",
-  "version": "1.2.0",
+  "version": "1.2.1",
+  "contributors": [
+    "Yis_Rime <yis_rime@outlook.com>"
+  ],
+  "homepage": "https://github.com/YisRime/koishi-plugin-ignore-space",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YisRime/koishi-plugin-ignore-space.git"
+  },
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
-  "license": "MIT",
+  "license": "GPL-3.0",
   "scripts": {},
   "keywords": [
     "chatbot",
     "koishi",
-    "plugin"
+    "plugin",
+    "space",
+    "ignore"
   ],
   "devDependencies": {},
   "peerDependencies": {
