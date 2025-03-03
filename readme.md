@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/koishi-plugin-ignore-space?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-ignore-space)
 
-忽略指令和参数之间的空格，支持黑白名单
+忽略指令和参数之间的空格，可配置是否过滤艾特及引用内容，支持黑白名单
 
 ## 功能特点
 

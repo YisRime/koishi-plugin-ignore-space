@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-ignore-space",
-  "description": "忽略指令和参数之间的空格，支持黑白名单",
-  "version": "1.2.1",
+  "description": "忽略指令和参数之间的空格，可配置是否过滤艾特及引用内容，支持黑白名单",
+  "version": "1.2.2",
   "contributors": [
     "Yis_Rime <yis_rime@outlook.com>"
   ],
