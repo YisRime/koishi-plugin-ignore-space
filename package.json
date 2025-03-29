@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-ignore-space",
   "description": "忽略特定指令与特定参数之间的空格，可配置对于艾特和引用内容的处理",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "contributors": [
     "Yis_Rime <yis_rime@outlook.com>"
   ],

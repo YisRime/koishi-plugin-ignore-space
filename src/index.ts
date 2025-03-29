@@ -24,7 +24,7 @@ export interface Config {
 
 export const Config: Schema<Config> = Schema.object({
   ignoreAt: Schema.boolean().description('忽略消息开头@前缀').default(true),
-  ignoreQuote: Schema.boolean().description('忽略引用内容').default(true),
+  ignoreQuote: Schema.boolean().description('忽略引用内容').default(false),
   whitelist: Schema.array(String).description('进行忽略处理的命令列表').default(['help']),
   blacklist: Schema.array(String).description('无需处理的完整命令参数列表').default(['help-H'])
 })
